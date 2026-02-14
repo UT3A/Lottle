@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { LotteryBall } from "@/components/Lottery/LotteryBall";
+import { MixingMachine } from "@/components/Lottery/MixingMachine";
 import { Sidebar } from "@/components/Lottery/Sidebar";
 import { Marquee } from "@/components/Lottery/Marquee";
 import { SettingsModal } from "@/components/Lottery/SettingsModal";
@@ -9,7 +10,6 @@ import { Play, RotateCcw } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { Toaster } from "@/components/ui/sonner";
 
-// Default pool: 1-39 padded with 0
 const DEFAULT_POOL = Array.from({ length: 39 }, (_, i) =>
   (i + 1).toString().padStart(2, "0")
 );
@@ -18,10 +18,9 @@ export default function App() {
   const [customPool, setCustomPool] = useState<string[]>([]);
   const [results, setResults] = useState<string[]>(Array(5).fill(null));
   const [isDrawing, setIsDrawing] = useState(false);
-  const [history, setHistory] = useState<string[][]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [drawingPhase, setDrawingPhase] = useState<"idle" | "mixing" | "extracting">("idle");
 
-  // Use custom pool if available, otherwise default
   const currentPool = customPool.length > 0 ? customPool : DEFAULT_POOL;
 
   useEffect(() => {
@@ -38,44 +37,36 @@ export default function App() {
     });
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('zh-TW', { 
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit' 
-    }).replace(/\//g, '-');
-  };
-
   const handleDraw = async () => {
     if (isDrawing) return;
-    
-    // Check if pool is large enough
     if (currentPool.length < 5) {
-      toast.error("抽獎池數量不足 (至少需要 5 個選項)");
+      toast.error("抽獎池數量不足");
       return;
     }
 
     setIsDrawing(true);
-    setResults(Array(5).fill(null)); // Reset current display
+    setDrawingPhase("mixing");
+    setResults(Array(5).fill(null)); 
 
-    // Determine winners
     const shuffled = [...currentPool].sort(() => 0.5 - Math.random());
     const winners = shuffled.slice(0, 5);
 
-    // Animate reveal one by one
     for (let i = 0; i < 5; i++) {
-        // Delay for suspense
-        await new Promise(resolve => setTimeout(resolve, 800)); 
+        setDrawingPhase("extracting");
+        await new Promise(resolve => setTimeout(resolve, 600)); 
         
         setResults(prev => {
             const next = [...prev];
             next[i] = winners[i];
             return next;
         });
+
+        setDrawingPhase("mixing");
+        await new Promise(resolve => setTimeout(resolve, 1000)); 
     }
 
+    setDrawingPhase("idle");
     setIsDrawing(false);
-    setHistory(prev => [winners, ...prev]);
     toast.success("開獎完成！");
   };
 
@@ -90,141 +81,117 @@ export default function App() {
     if (newPool.length > 0) {
         toast.success(`已更新抽獎池，共 ${newPool.length} 筆資料`);
     } else {
-        toast.info("已重置為預設數字池 (1-39)");
+        toast.info("已重置為預設數字池");
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#8B0000] to-[#500000] text-white font-sans overflow-hidden flex flex-col">
+    <div className="h-screen w-screen bg-gradient-to-b from-[#8B0000] to-[#500000] text-white font-sans overflow-hidden flex flex-col">
       <Toaster />
       
-      {/* Header */}
-      <header className="p-4 flex items-center justify-between border-b border-white/10 bg-black/20 backdrop-blur-sm">
-        <div className="flex items-center gap-4">
-             {/* Logo Placeholder */}
-             <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-red-900 font-black text-2xl border-4 border-white shadow-lg">
+      {/* Header - Fixed Height (64px) */}
+      <header className="h-16 px-4 flex items-center justify-between bg-black/20 backdrop-blur-sm z-50 shrink-0 shadow-lg border-b border-white/10">
+        <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-red-900 font-black text-xl border-2 border-white shadow-md">
                 539
              </div>
              <div>
-                <h1 className="text-2xl font-black tracking-wider text-yellow-400 drop-shadow-md">今彩 539 模擬開獎</h1>
-                <p className="text-xs text-white/70">公平 • 公正 • 公開</p>
+                <h1 className="text-xl font-black tracking-wider text-yellow-400 drop-shadow-sm">今彩 539 模擬開獎</h1>
              </div>
         </div>
         <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-                <p className="text-2xl font-mono font-bold text-white leading-none">
+                <p className="text-xl font-mono font-bold text-white leading-none">
                     {formatTime(currentTime)}
-                </p>
-                <p className="text-xs text-white/60">
-                    {formatDate(currentTime)}
                 </p>
             </div>
             <SettingsModal onPoolUpdate={handlePoolUpdate} currentPoolSize={customPool.length} />
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 container mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
+      {/* Main Content - Takes Remaining Height */}
+      <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 min-h-0">
         
-        {/* Draw Area (Left 3 cols) */}
-        <div className="lg:col-span-3 flex flex-col justify-center">
+        {/* Left Area (Machine + Controls) */}
+        <div className="lg:col-span-3 flex flex-col h-full relative">
             
-            {/* Display Boxes */}
-            <div className="grid grid-cols-5 gap-2 md:gap-4 mb-12">
-                {results.map((val, idx) => (
-                    <div key={idx} className="aspect-[3/4] relative">
-                         <div className="absolute inset-0 bg-gradient-to-br from-red-600 to-red-800 rounded-xl shadow-[0_10px_20px_rgba(0,0,0,0.5)] border-2 border-red-400 flex flex-col items-center justify-center overflow-hidden">
-                             {/* Label */}
-                             <div className="absolute top-2 left-0 w-full text-center text-xs font-bold text-red-300 uppercase tracking-widest">
-                                第 {idx + 1} 球
-                             </div>
-                             
-                             {/* Number Animation */}
-                             <AnimatePresence mode="wait">
-                                {val ? (
-                                    <motion.div 
-                                        key={val}
-                                        initial={{ scale: 0.5, opacity: 0, rotateX: 90 }}
-                                        animate={{ scale: 1, opacity: 1, rotateX: 0 }}
-                                        className="text-4xl md:text-6xl lg:text-7xl font-black text-white drop-shadow-xl"
-                                    >
-                                        {val}
-                                    </motion.div>
-                                ) : (
-                                    <div className="animate-pulse opacity-20 text-6xl font-black text-red-900">
-                                        ?
-                                    </div>
-                                )}
-                             </AnimatePresence>
-
-                             {/* Bottom Decor */}
-                             <div className="absolute bottom-0 w-full h-1/3 bg-gradient-to-t from-black/30 to-transparent"></div>
-                         </div>
-                    </div>
-                ))}
+            {/* Top: Machine (Flexible Height) */}
+            <div className="flex-1 min-h-0 p-4 pb-0 flex flex-col relative z-20">
+                 <MixingMachine pool={currentPool} isDrawing={isDrawing} drawingPhase={drawingPhase} />
             </div>
 
-            {/* Controls */}
-            <div className="flex justify-center gap-6">
-                <Button 
-                    size="lg" 
-                    onClick={handleDraw} 
-                    disabled={isDrawing}
-                    className="h-20 px-12 text-2xl bg-yellow-500 hover:bg-yellow-400 text-red-900 font-black rounded-full shadow-[0_0_30px_rgba(234,179,8,0.4)] border-4 border-yellow-200 transition-all active:scale-95"
-                >
-                    {isDrawing ? "開獎中..." : (
-                        <>
-                            <Play className="mr-2 h-8 w-8 fill-current" /> 開始開獎
-                        </>
-                    )}
-                </Button>
+            {/* Bottom: Rail & Controls (Fixed Height Section) */}
+            {/* Using a fixed height ensures buttons are always visible and layout is stable */}
+            <div className="h-[220px] shrink-0 relative flex flex-col items-center justify-end pb-4 z-30">
+                
+                {/* The Rail */}
+                <div className="absolute top-4 left-4 right-4 h-4 bg-gradient-to-b from-gray-400 to-gray-600 rounded-full shadow-xl border-t border-gray-300"></div>
 
-                {!isDrawing && results.some(r => r !== null) && (
+                {/* Balls Container */}
+                <div className="absolute top-[-30px] left-0 right-0 flex justify-center gap-2 md:gap-6 px-4 pointer-events-none h-24 items-end">
+                     {results.map((val, idx) => (
+                          <div key={idx} className="w-16 h-16 md:w-24 md:h-24 flex items-center justify-center relative shrink-0">
+                              <AnimatePresence>
+                                 {val && (
+                                     <motion.div 
+                                         key={val}
+                                         initial={{ y: -150, opacity: 0 }} 
+                                         animate={{ y: 0, opacity: 1 }}
+                                         transition={{ type: "spring", stiffness: 180, damping: 18 }}
+                                         className="relative z-30"
+                                     >
+                                         <LotteryBall 
+                                             value={val} 
+                                             size="xl" 
+                                             color="yellow"
+                                             className="shadow-2xl scale-75 md:scale-100"
+                                         />
+                                     </motion.div>
+                                 )}
+                              </AnimatePresence>
+                          </div>
+                     ))}
+                </div>
+
+                {/* Controls Area */}
+                <div className="mt-auto flex gap-6 z-50 pointer-events-auto">
                     <Button 
                         size="lg" 
-                        variant="outline" 
-                        onClick={handleReset}
-                        className="h-20 px-8 bg-black/30 text-white border-white/20 hover:bg-black/50 hover:text-white rounded-full"
+                        onClick={handleDraw} 
+                        disabled={isDrawing}
+                        className="h-16 px-10 text-2xl bg-yellow-500 hover:bg-yellow-400 text-red-900 font-black rounded-full shadow-[0_0_20px_rgba(234,179,8,0.4)] border-4 border-yellow-200 transition-all active:scale-95"
                     >
-                        <RotateCcw className="mr-2" /> 重置
+                        {isDrawing ? "開獎中..." : (
+                            <>
+                                <Play className="mr-2 h-8 w-8 fill-current" /> 啟動搖獎
+                            </>
+                        )}
                     </Button>
-                )}
-            </div>
 
+                    {!isDrawing && results.some(r => r !== null) && (
+                        <Button 
+                            size="lg" 
+                            variant="outline" 
+                            onClick={handleReset}
+                            className="h-16 px-8 bg-black/30 text-white border-white/20 hover:bg-black/50 hover:text-white rounded-full"
+                        >
+                            <RotateCcw className="mr-2" /> 重置
+                        </Button>
+                    )}
+                </div>
+            </div>
         </div>
 
-        {/* Sidebar (Right 1 col) */}
-        <div className="hidden lg:block">
+        {/* Right Sidebar (Desktop Only) */}
+        <div className="hidden lg:block h-full border-l border-white/10 bg-black/10 overflow-y-auto p-4">
             <Sidebar />
         </div>
+
       </main>
 
-      {/* Footer Area */}
-      <div className="bg-black/40 backdrop-blur-md border-t border-white/10">
-          <div className="container mx-auto p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-               {/* Result Balls (Small) */}
-               <div className="flex items-center gap-3">
-                    <span className="text-yellow-500 font-bold mr-2">本期號碼:</span>
-                    <div className="flex gap-2">
-                        {results.map((val, idx) => (
-                            <LotteryBall 
-                                key={idx} 
-                                value={val} 
-                                size="sm" 
-                                className={val ? "opacity-100" : "opacity-30"} 
-                            />
-                        ))}
-                    </div>
-               </div>
-
-               {/* Stats or Info */}
-               <div className="text-sm text-white/50">
-                    下期開獎時間: 明日 20:30
-               </div>
-          </div>
-          
-          {/* Marquee */}
-          <Marquee text={`歡迎收看今彩539開獎實況... 本期頭獎上看新台幣 800 萬元！ ... 下載官方 APP 隨時掌握最新獎號 ... 請理性投注，未滿18歲不得購買或兌領彩券 ... 開獎號碼以主辦單位公告為準 ...`} />
+      {/* Footer Marquee - Fixed Height (40px) */}
+      <div className="h-10 shrink-0 z-50">
+          <Marquee text={`歡迎收看今彩539開獎實況... 本期頭獎上看新台幣 800 萬元！ ... 下載官方 APP 隨時掌握最新獎號 ... 請理性投注，未滿18歲不得購買或兌領彩券 ...`} />
       </div>
 
     </div>

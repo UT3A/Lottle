@@ -4,48 +4,47 @@ import { motion } from "motion/react";
 
 interface LotteryBallProps {
   value: string | number | null;
-  isRolling?: boolean;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
-  theme?: "red" | "yellow";
+  color?: "yellow" | "white" | "red"; // Added colors common in lottery
 }
 
 export const LotteryBall: React.FC<LotteryBallProps> = ({
   value,
-  isRolling = false,
   size = "md",
   className,
-  theme = "yellow",
+  color = "yellow",
 }) => {
   const sizeClasses = {
-    sm: "w-8 h-8 text-sm",
-    md: "w-12 h-12 text-xl",
-    lg: "w-20 h-20 text-4xl",
+    sm: "w-8 h-8 text-[10px]",
+    md: "w-12 h-12 text-sm",
+    lg: "w-16 h-16 text-lg",
+    xl: "w-24 h-24 text-2xl", // Result ball size
   };
 
-  const themeClasses = {
-    red: "bg-gradient-to-br from-red-500 to-red-700 text-white border-red-300",
-    yellow: "bg-gradient-to-br from-yellow-300 to-yellow-500 text-red-900 border-yellow-100",
+  // Realistic Ping Pong Ball Gradients
+  const colorStyles = {
+    yellow: "bg-[radial-gradient(circle_at_35%_35%,_#fef08a_0%,_#eab308_50%,_#a16207_100%)] text-red-950 border-yellow-600/30",
+    white: "bg-[radial-gradient(circle_at_35%_35%,_#ffffff_0%,_#e2e8f0_50%,_#94a3b8_100%)] text-slate-900 border-slate-300/30",
+    red: "bg-[radial-gradient(circle_at_35%_35%,_#fca5a5_0%,_#dc2626_50%,_#7f1d1d_100%)] text-white border-red-900/30",
   };
 
   return (
     <div
       className={cn(
-        "rounded-full flex items-center justify-center font-bold shadow-lg border-2",
+        "rounded-full flex items-center justify-center font-black shadow-[0_4px_8px_rgba(0,0,0,0.3)] relative border",
         sizeClasses[size],
-        themeClasses[theme],
+        colorStyles[color],
         className
       )}
     >
-      <motion.div
-        key={value?.toString() || "empty"}
-        initial={isRolling ? { y: -20, opacity: 0 } : false}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 20, opacity: 0 }}
-        transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      >
-        {isRolling ? "?" : value || ""}
-      </motion.div>
+      {/* Highlight reflection for plastic look */}
+      <div className="absolute top-[10%] left-[10%] w-[25%] h-[20%] bg-gradient-to-br from-white/90 to-transparent rounded-full blur-[1px]"></div>
+      
+      {/* The Number/Text */}
+      <span className="relative z-10 drop-shadow-sm truncate max-w-[80%] px-1">
+        {value}
+      </span>
     </div>
   );
 };

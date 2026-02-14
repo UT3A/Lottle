@@ -132,6 +132,16 @@
 }
 
 /**
+ * Custom clip paths for the machine funnel
+ */
+.clip-path-trapezoid {
+  clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%);
+}
+.clip-path-trapezoid-wide {
+  clip-path: polygon(0 0, 100% 0, 70% 100%, 30% 100%);
+}
+
+/**
  * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
  */
 @layer base {
